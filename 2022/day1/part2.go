@@ -59,7 +59,7 @@ func solve(reader io.Reader) {
 }
 
 func main() {
-	f, err := os.Open("part1.in")
+	f, err := os.Open("input.txt")
 	defer f.Close()
 	if err != nil {
 		fmt.Printf("Error opening file: %v", err)
