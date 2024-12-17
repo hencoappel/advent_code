@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"sort"
@@ -18,21 +19,29 @@ func readRobot(line string) (int, int, int, int) {
 	return px, py, vx, vy
 }
 
+const (
+	TOP_LEFT     = 0
+	TOP_RIGHT    = 1
+	BOTTOM_LEFT  = 2
+	BOTTOM_RIGHT = 3
+	NONE         = -1
+)
+
 func quadrant(x, y int) int {
 	if x < midx {
 		if y < midy {
-			return 0
+			return TOP_LEFT
 		} else if y > midy {
-			return 2
+			return BOTTOM_LEFT
 		}
 	} else if x > midx {
 		if y < midy {
-			return 1
+			return TOP_RIGHT
 		} else if y > midy {
-			return 3
+			return BOTTOM_RIGHT
 		}
 	}
-	return -1
+	return NONE
 }
 
 var bx, by = 101, 103 // bounds
@@ -66,6 +75,46 @@ func solve(reader *bufio.Scanner, secs int) {
 
 func solve1(reader *bufio.Scanner) {
 	solve(reader, 100)
+}
+
+func safetyFactor(points []point) int {
+	quads := make([]int, 4)
+	for _, p := range points {
+		q := quadrant(p.x, p.y)
+		if q >= 0 {
+			quads[q]++
+		}
+	}
+	return quads[0] * quads[1] * quads[2] * quads[3]
+}
+
+func printGrid(bots []point) {
+	grid := make([][]byte, by)
+	for y := range by {
+		grid[y] = slices.Repeat([]byte{' '}, bx)
+	}
+	for _, b := range bots {
+		grid[b.y][b.x] = 'x'
+	}
+	for _, row := range grid {
+		fmt.Println(string(row))
+	}
+	fmt.Println(strings.Repeat("-", bx))
+}
+
+func step(bots, vs []point, steps int) []point {
+	res := make([]point, len(bots))
+	for i := range bots {
+		res[i].x = (bots[i].x + vs[i].x*steps) % bx
+		if res[i].x < 0 {
+			res[i].x = bx + res[i].x
+		}
+		res[i].y = (bots[i].y + vs[i].y*steps) % by
+		if res[i].y < 0 {
+			res[i].y = by + res[i].y
+		}
+	}
+	return res
 }
 
 func horizontalInRow(bots []point, n int) bool {
@@ -102,54 +151,42 @@ func horizontalInRow(bots []point, n int) bool {
 	return false
 }
 
-func printGrid(bots []point) {
-	grid := make([][]byte, by)
-	for y := range by {
-		grid[y] = slices.Repeat([]byte{' '}, bx)
-	}
-	for _, b := range bots {
-		if grid[b.y][b.x] == ' ' {
-			grid[b.y][b.x] = 'x'
-		} else {
-			// grid[b.y][b.x]++
-		}
-	}
-	for _, row := range grid {
-		fmt.Println(string(row))
-	}
-}
-
-func step(bots, vs []point) {
-	for i := range bots {
-		v := vs[i]
-		bots[i].x = (bots[i].x + v.x) % bx
-		if bx < 0 {
-			bots[i].x = bx + bots[i].x
-		}
-		bots[i].y = (bots[i].y + v.y) % by
-		if by < 0 {
-			bots[i].y = by + bots[i].y
-		}
-	}
-}
-
 func solve2(reader *bufio.Scanner) {
+	// lots of bugs caused this to be far too hard to find the answer
 	locations := make([]point, 0)
-	veloctities := make([]point, 0)
+	velocities := make([]point, 0)
 	for reader.Scan() {
 		px, py, vx, vy := readRobot(reader.Text())
 		locations = append(locations, point{px, py})
-		veloctities = append(locations, point{vx, vy})
+		velocities = append(velocities, point{vx, vy})
 	}
-	fmt.Println(len(veloctities))
-	// printGrid(locations)
-	for range 10000000 {
-		step(locations, veloctities)
-		if horizontalInRow(locations, 4) {
-			printGrid(locations)
-			fmt.Println("---------------------------------------------------------")
+	// fmt.Println(velocities)
+	// fmt.Println(locations)
+	// n := by * bx
+	// n := 100
+	n := 20_000
+	minStep := 0
+	minLocations := locations
+	minSafetyFactor := math.MaxInt
+	for i := 1; i <= n; i++ {
+		newlocs := step(locations, velocities, i)
+		sf := safetyFactor(newlocs)
+		// fmt.Println(newlocs[0])
+		if horizontalInRow(newlocs, 7) {
+			fmt.Println("found", i)
+			printGrid(newlocs)
+		}
+		if sf < minSafetyFactor {
+			minStep = i
+			minSafetyFactor = sf
+			minLocations = newlocs
+			// printGrid(minLocations)
 		}
 	}
+	fmt.Println(len(minLocations))
+	// printGrid(minLocations)
+	fmt.Println(minStep)
+	fmt.Println(minSafetyFactor)
 }
 
 func main() {
